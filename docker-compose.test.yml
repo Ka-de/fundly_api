@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  fundly_api:
-    image: fundly_api
-    container_name: fundly_api
+  shop_api:
+    image: shop_api
+    container_name: shop_api
     build:
       dockerfile: Dockerfile
       context: .
