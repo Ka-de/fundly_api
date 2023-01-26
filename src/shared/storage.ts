@@ -1,4 +1,4 @@
-import { createReadStream, createWriteStream, mkdirSync, rename, rmSync, unlink } from "fs";
+import { createReadStream, createWriteStream, mkdirSync, rename, rmSync, stat, statSync, unlink } from "fs";
 import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { MulterOptions } from "@nestjs/platform-express/multer/interfaces/multer-options.interface";
 import { diskStorage } from 'multer';
@@ -67,8 +67,23 @@ export class Storage {
     });
   }
 
-  static reset (){    
-    rmSync(Storage.path, { recursive: true });
+  delete(path: string): Promise<string> {  
+    return new Promise((resolve, reject) => {
+        stat(path, (err, file) => {          
+          if(file) {
+            rmSync(path);
+          }
+          resolve('');
+        });
+    });
+  }
+
+  static reset (){
+    stat(Storage.path, (err, store) => {
+      if(store) {
+        rmSync(Storage.path, { recursive: true });
+      }
+    });
   }
 
   static upload(

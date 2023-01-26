@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, HttpStatus, Query, CacheKey, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UsePipes, HttpStatus, Query, CacheKey, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiHeader, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { JoiValidationPipe } from '../../pipes/joi-validation.pipe';
 import { CreateUserValidator } from './validators/create-user.validator';
 import { ErrorResponse } from '../../errors/error.response';
@@ -12,6 +12,9 @@ import { RedisCacheKeys } from '../../redis-cache/redis-cache.keys';
 import { ListUsersResponse } from './responses/list-users.response';
 import { UserResponse } from './responses/user.response';
 import { CacheClear } from '../../decorators/cache-clear.decorator';
+import { AuthorizeGuard } from '../../guards/authorize.guard';
+import { RolesGuard } from '../../guards/roles.guard';
+import { AccessRights } from '../../shared/access.right';
 
 @Controller('users')
 export class UsersController {
@@ -21,7 +24,7 @@ export class UsersController {
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, type: ErrorResponse })
   @ApiResponse({ status: HttpStatus.CONFLICT, type: ErrorResponse })
   @UsePipes(new JoiValidationPipe(CreateUserValidator))
-  @CacheClear(RedisCacheKeys.LIST_USERS, RedisCacheKeys.GET_USER)
+  @CacheClear(RedisCacheKeys.LIST_USERS)
   @Post()
   createUser(
     @Body() createUserDto: CreateUserDto
@@ -29,6 +32,11 @@ export class UsersController {
     return this.usersService.createUser(createUserDto);
   }
 
+  @ApiHeader({ name: 'token', required: true }) 
+  @UseGuards(
+    AuthorizeGuard, 
+    new RolesGuard([AccessRights.SUPERADMIN, AccessRights.ADMIN])
+  )  
   @ApiQuery({ name: 'limit', required: false, description: 'The max number of users to fetch', type: Number })
   @ApiQuery({ name: 'offset', required: false, description: 'The page number to fetch', type: Number })
   @ApiQuery({ name: 'sort', required: false, description: 'The order of sorting', enum: SortEnum, type: String })
@@ -45,6 +53,11 @@ export class UsersController {
     return this.usersService.listUsers(limit, offset, sort, query);
   }
 
+  @ApiHeader({ name: 'token', required: true }) 
+  @UseGuards(
+    AuthorizeGuard, 
+    new RolesGuard([AccessRights.SUPERADMIN, AccessRights.ADMIN])
+  )
   @ApiParam({ name: 'id', required: true, description: 'The id of the user' })
   @ApiResponse({ status: HttpStatus.OK, type: UserResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, type: ErrorResponse })

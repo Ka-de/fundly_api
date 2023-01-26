@@ -1,17 +1,17 @@
 version: "3.8"
 
 services:
-  whispers_db_test:
+  shop_db_test:
     image: mongo
-    container_name: whispers_db_test
+    container_name: shop_db_test
     ports:
       - 27017:27017
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: password
-  whispers_cache_test:
+  shop_cache_test:
     image: redis:5-alpine
-    container_name: whispers_cache_test
+    container_name: shop_cache_test
     command: /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
     ports:
       - 6379:6379

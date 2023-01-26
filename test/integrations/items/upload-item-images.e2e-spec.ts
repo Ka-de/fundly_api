@@ -7,9 +7,11 @@ import { AppModule } from '../../../src/app.module';
 import { Fixture } from '../../fixture';
 import { RedisCacheService } from '../../../src/redis-cache/redis-cache.service';
 import { ConfigService } from '@nestjs/config';
+import { Storage } from '../../../src/shared/storage';
 import { expect } from 'chai';
+import { AccessRights } from '../../../src/shared/access.right';
 
-describe('Update Task', () => {
+describe('Upload Item Images', () => {
   let app: INestApplication;
   let httpServer: any;
   let moduleFixture: TestingModule;
@@ -18,8 +20,8 @@ describe('Update Task', () => {
   let redisCacheService: RedisCacheService;
   let configService: ConfigService;
   let user = null;
-  let task = null;
   let token: string;
+  let item = null;
 
   before(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -39,17 +41,18 @@ describe('Update Task', () => {
   });
 
   beforeEach(async () => {
-    user = await fixture.createUser();
+    user = await fixture.createUser({ right: AccessRights.ADMIN });
+    item = await fixture.createItem();
     token = await fixture.login(user);
-    await fixture.requestPassword(user.email);
-    task = await fixture.createTask(user);
   });
 
   afterEach(async() => {
     await dbConnection.collection('users').deleteMany({});
+    await dbConnection.collection('items').deleteMany({});
   });
 
   after(async () => {
+    Storage.reset();
     await dbConnection.dropDatabase();
     await app.close();
     await moduleFixture.close();
@@ -57,8 +60,10 @@ describe('Update Task', () => {
 
   it('should fail when invalid id is sent', async () => {        
     const response = await request(httpServer)
-      .patch(`/tasks/${1}`)
-      .set('token', token);
+    .put(`/items/1/images`)
+    .attach('images', './test/sample.png')
+    .set('token', token)
+    .set('Content-Type', 'multipart/form-data');
 
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);      
     expect(response.body).to.deep.include({
@@ -67,52 +72,65 @@ describe('Update Task', () => {
     });
   });
 
-  it('should fail when task is not found', async () => {   
-    const id = task._id.toString().split('').reverse().join('');      
+  it('should fail when item is not found', async () => {   
+    const id = item._id.toString().split('').reverse().join('');  
+               
     const response = await request(httpServer)
-      .patch(`/tasks/${id}`)
-      .set('token', token);        
-    
+    .put(`/items/${id}/images`)
+    .attach('images', './test/sample.png')
+    .set('token', token)
+    .set('Content-Type', 'multipart/form-data');
+ 
+
     expect(response.status).to.equal(HttpStatus.NOT_FOUND);      
     expect(response.body).to.deep.include({
       success: false,
-      message: 'Task not found'
+      message: 'Item not found'
     });
   });
 
-  it('should fail when invalid uri is provided', async () => {
+  it('should fail when no images is sent', async () => {    
     const response = await request(httpServer)
-      .patch(`/tasks/${task._id}`)
-      .set('token', token)
-      .send({ uri: 'uri' });    
+      .put(`/items/${item._id}/images`)
+      .set('token', token);    
 
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
     expect(response.body).to.deep.include({
       success: false,
-      message: '"uri" must be a valid uri'
-    })  
+      message: '"files" are not valid'
+    });
   });
 
-  it('should fail when invalid method is provided', async () => {
+  it('should fail when excess images are sent', async () => {    
     const response = await request(httpServer)
-      .patch(`/tasks/${task._id}`)
+      .put(`/items/${item._id}/images`)
+      .attach('images', './test/sample.png')
+      .attach('images', './test/sample.png')
+      .attach('images', './test/sample.png')
+      .attach('images', './test/sample.png')
+      .attach('images', './test/sample.png')
+      .attach('images', './test/sample.png')
       .set('token', token)
-      .send({ method: 'method' });    
+      .set('Content-Type', 'multipart/form-data');    
 
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
     expect(response.body).to.deep.include({
       success: false,
-      message: '"method" must be one of [get, post, put, patch, delete]'
-    })  
+    });
   });
 
-  it('should create the task', async () => {
+  it('should succeed when valid data is sent', async () => {    
     const response = await request(httpServer)
-      .patch(`/tasks/${task._id}`)
-      .set('token', token)
-      .send({ title: 'new title' });    
+    .put(`/items/${item._id}/images`)
+    .attach('images', './test/sample.png')
+    .attach('images', './test/sample.png')
+    .set('token', token)
+    .set('Content-Type', 'multipart/form-data');
 
-    expect(response.status).to.equal(HttpStatus.OK);  
-    expect(response.body.payload).to.deep.include({ title: 'new title'});  
+    expect(response.status).to.equal(HttpStatus.OK);          
+    expect(response.body).to.deep.include({
+      success: true
+    });    
+    expect(response.body.payload.length).to.equal(2);
   });
 });

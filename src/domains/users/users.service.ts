@@ -16,7 +16,6 @@ import { Storage } from '../../shared/storage';
 
 @Injectable()
 export class UsersService {
-
   storage = new Storage();
 
   constructor(
@@ -42,11 +41,8 @@ export class UsersService {
 
   async findById(id: string) {     
     let user = await this.redisCacheService.get<User>(`${RedisCacheKeys.GET_USER}:${id}`);
-    if (user) {
-      return user;
-    }
 
-    user = await this.userModel.findOne({ _id: id, hidden: false });   
+    user = user ? user : await this.userModel.findOne({ _id: id, hidden: false });   
      
     if(!user){
       throw new NotFoundException('User not found');

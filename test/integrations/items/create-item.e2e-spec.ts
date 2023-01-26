@@ -8,21 +8,20 @@ import { Fixture } from '../../fixture';
 import { RedisCacheService } from '../../../src/redis-cache/redis-cache.service';
 import { ConfigService } from '@nestjs/config';
 import { expect } from 'chai';
-import { createTaskStub, taskStub } from '../../stubs/task.stubs';
-import { JobsService } from '../../../src/jobs/jobs.service';
+import { AccessRights } from '../../../src/shared/access.right';
+import { createitemStub, itemStub } from '../../stubs/item.stubs';
 
-describe('Create Task', () => {
+describe('Create Item', () => {
   let app: INestApplication;
   let httpServer: any;
   let moduleFixture: TestingModule;
   let dbConnection: Connection;
   let fixture: Fixture;
   let redisCacheService: RedisCacheService;
-  let configService: ConfigService;
-  let jobsService: JobsService;
-  let user = null;
-  let token = null;
-
+  let configService: ConfigService
+  let user: any;
+  let token: any;
+  
   before(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [
@@ -37,21 +36,17 @@ describe('Create Task', () => {
     dbConnection = moduleFixture.get<DatabaseService>(DatabaseService).getConnection();
     redisCacheService = moduleFixture.get<RedisCacheService>(RedisCacheService);
     configService = moduleFixture.get<ConfigService>(ConfigService);
-    jobsService = moduleFixture.get<JobsService>(JobsService);
     fixture = new Fixture(dbConnection, redisCacheService, configService);
   });
 
   beforeEach(async () => {
-    user = await fixture.createUser();
+    user = await fixture.createUser({ right: AccessRights.ADMIN });
     token = await fixture.login(user);
-    await fixture.requestPassword(user.email);
   });
 
   afterEach(async() => {
     await dbConnection.collection('users').deleteMany({});
-    await dbConnection.collection('tasks').deleteMany({});
-
-    await jobsService.clearJobs();
+    await dbConnection.collection('items').deleteMany({});
   });
 
   after(async () => {
@@ -61,11 +56,10 @@ describe('Create Task', () => {
   });
 
   it('should fail when no title is provided', async () => {
-    const { description } = createTaskStub;
     const response = await request(httpServer)
-      .post('/tasks')
+      .post('/items')
       .set('token', token)
-      .send({ description });    
+      .send({});    
 
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
     expect(response.body).to.deep.include({
@@ -74,84 +68,57 @@ describe('Create Task', () => {
     })  
   });
 
-  it('should fail when no uri is provided', async () => {
-    const { title } = createTaskStub;
+  it('should fail when no price is provided', async () => {
+    const { title } = createitemStub;
     const response = await request(httpServer)
-      .post('/tasks')
+      .post('/items')
       .set('token', token)
-      .send({ title });    
+      .send({ title });
 
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
     expect(response.body).to.deep.include({
       success: false,
-      message: '"uri" is required'
+      message: '"price" is required'
     })  
   });
 
-  it('should fail when invalid uri is provided', async () => {
-    const { title } = createTaskStub;
+  it('should fail when invalid price is provided', async () => {
+    const { title } = createitemStub;
     const response = await request(httpServer)
-      .post('/tasks')
+      .post('/items')
       .set('token', token)
-      .send({ title, uri: 'uri' });    
+      .send({ title, price: 'abc' });
 
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
     expect(response.body).to.deep.include({
       success: false,
-      message: '"uri" must be a valid uri'
+      message: '"price" must be a number'
     })  
   });
 
-  it('should fail when no method is provided', async () => {
-    const { title, uri } = createTaskStub;
-    const response = await request(httpServer)
-      .post('/tasks')
-      .set('token', token)
-      .send({ title, uri });    
+  it('should fail when title is taken', async () => {
+    await fixture.createItem();
 
-    expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
+    const response = await request(httpServer)
+      .post('/items')
+      .set('token', token)
+      .send({ ...createitemStub });    
+
+    expect(response.status).to.equal(HttpStatus.CONFLICT);  
     expect(response.body).to.deep.include({
       success: false,
-      message: '"method" is required'
-    })  
+      message: '"title" is already in use'
+    });
   });
 
-  it('should fail when invalid method is provided', async () => {
-    const { title, uri } = createTaskStub;
+  it('should succeed when valid data is provided', async () => {
     const response = await request(httpServer)
-      .post('/tasks')
+      .post('/items')
       .set('token', token)
-      .send({ title, uri, method: 'method' });    
+      .send({...createitemStub});      
 
-    expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
-    expect(response.body).to.deep.include({
-      success: false,
-      message: '"method" must be one of [get, post, put, patch, delete]'
-    })  
-  });
-
-  it('should fail when no expression is provided', async () => {
-    const { title, uri, method } = createTaskStub;
-    const response = await request(httpServer)
-      .post('/tasks')
-      .set('token', token)
-      .send({ title, uri, method });    
-
-    expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
-    expect(response.body).to.deep.include({
-      success: false,
-      message: '"when" is required'
-    })  
-  });
-
-  it('should create the task', async () => {
-    const { title, uri, method, when } = createTaskStub;
-    const response = await request(httpServer)
-      .post('/tasks')
-      .set('token', token)
-      .send({ title, uri, method, when });    
-
-    expect(response.status).to.equal(HttpStatus.CREATED);  
-    expect(response.body.payload).to.deep.include(taskStub);  
+    expect(response.status).to.equal(HttpStatus.CREATED); 
+    expect(response.body.success).to.equal(true);                           
+    expect(response.body.payload).to.deep.include(itemStub);
   });
 });

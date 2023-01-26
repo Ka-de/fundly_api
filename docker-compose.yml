@@ -13,25 +13,25 @@ services:
       - /app/node_modules
     command: sh /app/start.sh
     depends_on:
-      - whispers_db
-      - whispers_cache
+      - shop_db
+      - shop_cache
     ports:
       - ${PORT}:${PORT}
     env_file:
       - ${ENV_FILE:-.noenv}
     
-  whispers_db:
+  shop_db:
     image: mongo
-    container_name: whispers_db
+    container_name: shop_db
     ports:
       - ${MONGO_PORT}:${MONGO_PORT}
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: password
 
-  whispers_cache:
+  shop_cache:
     image: redis:5-alpine
-    container_name: whispers_cache
+    container_name: shop_cache
     command: /bin/sh -c "redis-server --requirepass $$REDIS_PASSWORD"
     ports:
       - ${REDIS_PORT}:${REDIS_PORT}

@@ -7,9 +7,11 @@ import { AppModule } from '../../../src/app.module';
 import { Fixture } from '../../fixture';
 import { RedisCacheService } from '../../../src/redis-cache/redis-cache.service';
 import { ConfigService } from '@nestjs/config';
-import { expect } from 'chai';
+import { expect, use } from 'chai';
+import { itemStub } from '../../stubs/item.stubs';
+import { AccessRights } from '../../../src/shared/access.right';
 
-describe('Delete Task', () => {
+describe('UnWishlist Item', () => {
   let app: INestApplication;
   let httpServer: any;
   let moduleFixture: TestingModule;
@@ -18,8 +20,8 @@ describe('Delete Task', () => {
   let redisCacheService: RedisCacheService;
   let configService: ConfigService;
   let user = null;
-  let task = null;
   let token: string;
+  let item: any;
 
   before(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -39,14 +41,14 @@ describe('Delete Task', () => {
   });
 
   beforeEach(async () => {
-    user = await fixture.createUser();
+    user = await fixture.createUser({ right: AccessRights.ADMIN });
     token = await fixture.login(user);
-    await fixture.requestPassword(user.email);
-    task = await fixture.createTask(user);
+    item = await fixture.createItem();
   });
 
   afterEach(async() => {
     await dbConnection.collection('users').deleteMany({});
+    await dbConnection.collection('items').deleteMany({});
   });
 
   after(async () => {
@@ -57,9 +59,9 @@ describe('Delete Task', () => {
 
   it('should fail when invalid id is sent', async () => {        
     const response = await request(httpServer)
-      .delete(`/tasks/${1}`)
+      .delete(`/items/${1}/wishlist`)
       .set('token', token);
-
+      
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);      
     expect(response.body).to.deep.include({
       success: false,
@@ -67,24 +69,29 @@ describe('Delete Task', () => {
     });
   });
 
-  it('should fail when task is not found', async () => {   
-    const id = task._id.toString().split('').reverse().join('');      
+  it('should fail when item is not found', async () => {   
+    const id = item._id.toString().split('').reverse().join('');  
+               
     const response = await request(httpServer)
-      .delete(`/tasks/${id}`)
-      .set('token', token);        
-    
+      .delete(`/items/${id}/wishlist`)
+      .set('token', token);
+
     expect(response.status).to.equal(HttpStatus.NOT_FOUND);      
     expect(response.body).to.deep.include({
       success: false,
-      message: 'Task not found'
+      message: 'Item not found'
     });
   });
 
-  it('should delete the task', async () => {
+  it('should unwishlist the item', async () => {        
     const response = await request(httpServer)
-      .delete(`/tasks/${task._id}`)
-      .set('token', token);
+      .delete(`/items/${item._id}/wishlist`)
+      .set('token', token);    
 
-    expect(response.status).to.equal(HttpStatus.OK);  
+    expect(response.status).to.equal(HttpStatus.OK);      
+    expect(response.body.payload).to.deep.include({
+      ...itemStub,
+      wishlistedBy: []
+    });
   });
 });

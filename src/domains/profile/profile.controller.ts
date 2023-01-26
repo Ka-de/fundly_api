@@ -23,10 +23,10 @@ export class ProfileController {
   ) {}
 
   @ApiHeader({ name: 'token', required: true }) 
+  @UseGuards(AuthorizeGuard)
   @ApiResponse({ status: HttpStatus.OK, type: UserResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, type: ErrorResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, type: ErrorResponse })
-  @UseGuards(AuthorizeGuard)
   @CacheKey(RedisCacheKeys.GET_USER)
   @CacheFilter('token')
   @Get()
@@ -38,11 +38,11 @@ export class ProfileController {
 
   @ApiHeader({ name: 'token', required: true })
   @ApiHeader({ name: 'password', required: true })
+  @UseGuards(AuthorizeGuard, AuthenticationGuard)
   @ApiResponse({ status: HttpStatus.OK, type: UserResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, type: ErrorResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, type: ErrorResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, type: ErrorResponse })
-  @UseGuards(AuthorizeGuard, AuthenticationGuard)
   @CacheClear(RedisCacheKeys.LIST_USERS, RedisCacheKeys.GET_USER)
   @Patch()
   updateProfile(
@@ -54,10 +54,10 @@ export class ProfileController {
 
   @ApiHeader({ name: 'token', required: true })
   @ApiHeader({ name: 'password', required: true })
+  @UseGuards(AuthorizeGuard, AuthenticationGuard)
   @ApiResponse({ status: HttpStatus.OK, type: PickType(ResponseSchema, ['success']) })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, type: ErrorResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, type: ErrorResponse })
-  @UseGuards(AuthorizeGuard, AuthenticationGuard)
   @CacheClear(RedisCacheKeys.LIST_USERS, RedisCacheKeys.GET_USER)
   @Delete()
   removeProfie(
@@ -67,16 +67,15 @@ export class ProfileController {
   }
 
   @ApiHeader({ name: 'token', required: true })
+  @UseGuards(AuthorizeGuard)
   @ApiResponse({ status: HttpStatus.OK, type: PickType(ResponseSchema, ['success']) })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, type: ErrorResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, type: ErrorResponse })
-  @UseGuards(AuthorizeGuard)
   @UseInterceptors(Storage.upload('image', 1))
   @Patch('image')
   uploadImage(
     @UploadedFile(new JoiValidationPipe(FileValidator.One)) file: any,
     @CurrentUser('_id') id: string,
-    @Body() body
   ){    
     return this.usersService.uploadImage(id, file);
   }

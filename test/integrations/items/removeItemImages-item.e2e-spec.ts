@@ -7,21 +7,21 @@ import { AppModule } from '../../../src/app.module';
 import { Fixture } from '../../fixture';
 import { RedisCacheService } from '../../../src/redis-cache/redis-cache.service';
 import { ConfigService } from '@nestjs/config';
-import { expect } from 'chai';
-import { RedisCacheKeys } from '../../../src/redis-cache/redis-cache.keys';
+import { expect, use } from 'chai';
+import { itemStub } from '../../stubs/item.stubs';
+import { AccessRights } from '../../../src/shared/access.right';
 
-describe('Clear Responses', () => {
+describe('UnWishlist Item', () => {
   let app: INestApplication;
   let httpServer: any;
   let moduleFixture: TestingModule;
   let dbConnection: Connection;
   let fixture: Fixture;
-  let user: any;
-  let task: any;
-  let taskResponse: any;
-  let token = null;
   let redisCacheService: RedisCacheService;
   let configService: ConfigService;
+  let user = null;
+  let token: string;
+  let item: any;
 
   before(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -37,24 +37,20 @@ describe('Clear Responses', () => {
     dbConnection = moduleFixture.get<DatabaseService>(DatabaseService).getConnection();
     redisCacheService = moduleFixture.get<RedisCacheService>(RedisCacheService);
     configService = moduleFixture.get<ConfigService>(ConfigService);
-    fixture = new Fixture(dbConnection, redisCacheService, configService);
+    fixture = new Fixture(dbConnection, redisCacheService, configService, );
   });
 
   beforeEach(async () => {
-    await redisCacheService.del(RedisCacheKeys.GET_TASK, true);
-    user = await fixture.createUser();
+    user = await fixture.createUser({ right: AccessRights.ADMIN });
     token = await fixture.login(user);
-    await fixture.requestPassword(user.email);
-    task = await fixture.createTask(user);
-    taskResponse = await fixture.createResponse(user, task);
+    item = await fixture.createItem();
   });
 
   afterEach(async() => {
     await dbConnection.collection('users').deleteMany({});
-    await dbConnection.collection('tasks').deleteMany({});
-    await dbConnection.collection('responses').deleteMany({});
+    await dbConnection.collection('items').deleteMany({});
   });
-  
+
   after(async () => {
     await dbConnection.dropDatabase();
     await app.close();
@@ -63,9 +59,9 @@ describe('Clear Responses', () => {
 
   it('should fail when invalid id is sent', async () => {        
     const response = await request(httpServer)
-      .delete(`/tasks/${1}/responses`)
+      .delete(`/items/${1}/images`)
       .set('token', token);
-
+      
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);      
     expect(response.body).to.deep.include({
       success: false,
@@ -73,24 +69,33 @@ describe('Clear Responses', () => {
     });
   });
 
-  it('should fail when task is not found', async () => {   
-    const id = task._id.toString().split('').reverse().join('');      
+  it('should fail when item is not found', async () => {   
+    const id = item._id.toString().split('').reverse().join('');  
+               
     const response = await request(httpServer)
-      .delete(`/tasks/${id}/responses`)
-      .set('token', token);        
-    
+      .delete(`/items/${id}/images`)
+      .set('token', token);
+
     expect(response.status).to.equal(HttpStatus.NOT_FOUND);      
     expect(response.body).to.deep.include({
       success: false,
-      message: 'Task not found'
+      message: 'Item not found'
     });
   });
 
-  it('should clear all task responses', async () => {        
+  it('should remove images the item', async () => {   
+    const uploadResponse = await request(httpServer)
+      .put(`/items/${item._id}/images`)
+      .attach('images', './test/sample.png')
+      .set('token', token)
+      .set('Content-Type', 'multipart/form-data');    
+
     const response = await request(httpServer)
-      .delete(`/tasks/${task._id}/responses`)
-      .set('token', token);     
+      .delete(`/items/${item._id}/images`)
+      .set('token', token)
+      .send({ files: uploadResponse.body.payload });
 
     expect(response.status).to.equal(HttpStatus.OK);      
+    expect(response.body.payload.length).to.equal(0);
   });
 });

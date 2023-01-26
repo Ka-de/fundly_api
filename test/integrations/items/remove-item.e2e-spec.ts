@@ -4,23 +4,23 @@ import * as request from 'supertest';
 import { Connection } from 'mongoose';
 import { DatabaseService } from '../../../src/database/database.service';
 import { AppModule } from '../../../src/app.module';
-import { userStub } from '../../stubs/user.stubs';
 import { Fixture } from '../../fixture';
 import { RedisCacheService } from '../../../src/redis-cache/redis-cache.service';
 import { ConfigService } from '@nestjs/config';
 import { expect } from 'chai';
 import { AccessRights } from '../../../src/shared/access.right';
 
-describe('Get User', () => {
+describe('Remove Item', () => {
   let app: INestApplication;
   let httpServer: any;
   let moduleFixture: TestingModule;
   let dbConnection: Connection;
   let fixture: Fixture;
-  let user: any;
-  let token: any;
   let redisCacheService: RedisCacheService;
   let configService: ConfigService;
+  let user = null;
+  let token: string;
+  let item: any;
 
   before(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -42,11 +42,12 @@ describe('Get User', () => {
   beforeEach(async () => {
     user = await fixture.createUser({ right: AccessRights.ADMIN });
     token = await fixture.login(user);
-    await fixture.requestPassword(user.email);
+    item = await fixture.createItem();
   });
 
   afterEach(async() => {
     await dbConnection.collection('users').deleteMany({});
+    await dbConnection.collection('items').deleteMany({});
   });
 
   after(async () => {
@@ -57,7 +58,7 @@ describe('Get User', () => {
 
   it('should fail when invalid id is sent', async () => {        
     const response = await request(httpServer)
-      .get(`/users/${1}`)
+      .delete(`/items/${1}`)
       .set('token', token);
 
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);      
@@ -67,26 +68,25 @@ describe('Get User', () => {
     });
   });
 
-  it('should fail when user is not found', async () => {   
-    const id = user._id.toString().split('').reverse().join('');  
+  it('should fail when item is not found', async () => {   
+    const id = item._id.toString().split('').reverse().join('');  
                
     const response = await request(httpServer)
-      .get(`/users/${id}`)
+      .delete(`/items/${id}`)
       .set('token', token);        
 
     expect(response.status).to.equal(HttpStatus.NOT_FOUND);      
     expect(response.body).to.deep.include({
       success: false,
-      message: 'User not found'
+      message: 'Item not found'
     });
   });
 
-  it('should get the user', async () => {        
+  it('should delete the item', async () => {        
     const response = await request(httpServer)
-      .get(`/users/${user._id}`)
+      .delete(`/items/${item._id}`)
       .set('token', token);     
 
     expect(response.status).to.equal(HttpStatus.OK);      
-    expect(response.body.payload).to.deep.include({ ...userStub, right: AccessRights.ADMIN });
   });
 });

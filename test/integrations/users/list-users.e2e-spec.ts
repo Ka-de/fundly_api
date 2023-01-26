@@ -10,6 +10,7 @@ import { RedisCacheKeys } from '../../../src/redis-cache/redis-cache.keys';
 import { SortEnum } from '../../../src/shared/sort.enum';
 import { ConfigService } from '@nestjs/config';
 import { expect } from 'chai';
+import { AccessRights } from '../../../src/shared/access.right';
 
 describe('List Users', () => {
   let app: INestApplication;
@@ -19,6 +20,7 @@ describe('List Users', () => {
   let fixture: Fixture;
   let redisCacheService: RedisCacheService
   let user: any;
+  let token: any;
   let configService: ConfigService;
 
   before(async () => {
@@ -40,7 +42,9 @@ describe('List Users', () => {
 
   beforeEach(async () => {
     await redisCacheService.del(RedisCacheKeys.LIST_USERS, true);
-    user = await fixture.createUser();
+    user = await fixture.createUser({ right: AccessRights.ADMIN });
+    token = await fixture.login(user);
+    await fixture.requestPassword(user.email);
   });
 
   afterEach(async() => {
@@ -55,7 +59,8 @@ describe('List Users', () => {
 
   it('should get 1 user', async () => {        
     const response = await request(httpServer)
-      .get(`/users`);     
+      .get(`/users`)
+      .set('token', token);    
     
     expect(response.status).to.equal(HttpStatus.OK);      
     expect(response.body.success).to.equal(true);
@@ -65,7 +70,8 @@ describe('List Users', () => {
   it('should get 2 user', async () => {  
     await fixture.createUser({ email: 'some@mail.com', phone: '11111111111' });      
     const response = await request(httpServer)
-      .get(`/users`);
+      .get(`/users`)
+      .set('token', token);
 
     expect(response.status).to.equal(HttpStatus.OK);      
     expect(response.body.success).to.equal(true);
@@ -75,7 +81,8 @@ describe('List Users', () => {
   it('should get reverse users when sort is asc', async () => {  
     await fixture.createUser({ email: 'some@mail.com', phone: '11111111111' });      
     const response = await request(httpServer)
-      .get(`/users?sort=${SortEnum.asc}`);      
+      .get(`/users?sort=${SortEnum.asc}`)
+      .set('token', token);   
     
     expect(response.status).to.equal(HttpStatus.OK);      
     expect(response.body.success).to.equal(true);
@@ -86,7 +93,8 @@ describe('List Users', () => {
   it('should get 1 user when limit is 1', async () => {  
     await fixture.createUser({ email: 'some@mail.com', phone: '11111111111' });      
     const response = await request(httpServer)
-      .get(`/users?limit=1`);
+      .get(`/users?limit=1`)
+      .set('token', token);
 
     expect(response.status).to.equal(HttpStatus.OK);      
     expect(response.body.success).to.equal(true);
@@ -96,7 +104,8 @@ describe('List Users', () => {
   it('should get second user when offset is 1', async () => {  
     await fixture.createUser({ email: 'some@mail.com', phone: '11111111111' });      
     const response = await request(httpServer)
-      .get(`/users?limit=1&offset=1`);
+      .get(`/users?limit=1&offset=1`)
+      .set('token', token);
 
     expect(response.status).to.equal(HttpStatus.OK);      
     expect(response.body.success).to.equal(true);
@@ -107,7 +116,8 @@ describe('List Users', () => {
   it('should get only searched users', async () => {  
     await fixture.createUser({ email: 'some@mail.com', phone: '11111111111' });      
     const response = await request(httpServer)
-      .get(`/users?query=some`);
+      .get(`/users?query=some`)
+      .set('token', token);
 
     expect(response.status).to.equal(HttpStatus.OK);      
     expect(response.body.success).to.equal(true);

@@ -6,15 +6,11 @@ import { RedisCacheService } from '../src/redis-cache/redis-cache.service';
 import { User } from '../src/domains/users/entities/user.entity';
 import { ConfigService } from '@nestjs/config';
 import { sign } from 'jsonwebtoken';
-import { Task } from '../src/domains/tasks/entities/task.entity';
-import { createTaskStub } from './stubs/task.stubs';
-import { createResponseStub } from './stubs/response.stubs';
-import { Response } from '../src/domains/responses/entities/response.entity';
-
+import { Item } from '../src/domains/items/entities/item.entity';
+import { createitemStub } from './stubs/item.stubs';
 export class Fixture {
   readonly userCollection: Collection;
-  readonly taskCollection: Collection;
-  readonly responseCollection: Collection;
+  readonly itemCollection: Collection;
 
   readonly password = '12345';
 
@@ -22,10 +18,9 @@ export class Fixture {
     private connection: Connection,
     private redisCacheService: RedisCacheService,
     private configService: ConfigService
-  ){
+  ) {
     this.userCollection = this.connection.collection('users');
-    this.taskCollection = this.connection.collection('tasks');
-    this.responseCollection = this.connection.collection('responses');
+    this.itemCollection = this.connection.collection('items');
   }
 
   async createUser(data: Partial<User> = {}){
@@ -52,26 +47,14 @@ export class Fixture {
     return token;
   }
 
-  async createTask(user: User, data: Partial<Task> = {}){
+  async createItem(data: Partial<Item> = {}){
     const id = uuidv4();
     const createdAt = new Date();
     const updatedAt = new Date();
 
-    await this.taskCollection.insertOne({ ...createTaskStub, ...data, _id: id as any, createdAt, updatedAt, owner: user._id });
-    const task = await this.taskCollection.findOne({ _id: id });
+    await this.itemCollection.insertOne({ ...createitemStub, ...data, _id: id as any, createdAt, updatedAt, hidden: false });
+    const item = await this.itemCollection.findOne({ _id: id });
 
-    return task;
-  }
-
-  async createResponse(user: User, task?: Task, data: Partial<Response> = {}){
-    const id = uuidv4();
-    const createdAt = new Date();
-    const updatedAt = new Date();
-
-    const taskId = task ? task._id : (await this.createTask(user))._id;
-    await this.responseCollection.insertOne({ ...createResponseStub(taskId.toString()), ...data, _id: id as any, createdAt, updatedAt });
-
-    const response = await this.responseCollection.findOne({ _id: id })
-    return response;
+    return item;
   }
 }

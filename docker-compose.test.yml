@@ -10,18 +10,18 @@ services:
       target: development
     command: sh /app/start.sh
     depends_on:
-      - whispers_db_test
-      - whispers_cache_test
+      - shop_db_test
+      - shop_cache_test
     ports:
       - 8081:8081
     env_file:
       - ${ENV_FILE:-.noenv}
     environment:
-      DATABASE_URI: mongodb://root:password@whispers_db_test:27017
+      DATABASE_URI: mongodb://root:password@shop_db_test:27017
       NODE_ENV: test
       MONGO_PORT: 27017
       PORT: 8081
-      REDIS_HOST: whispers_cache_test
+      REDIS_HOST: shop_cache_test
       REDIS_PORT: 6379
       CACHE_TTL: 3600
       DEFAULT_EMAIL: ikekatochukwu@gmail.com
@@ -31,9 +31,9 @@ services:
       MAIL_FROM: noreply@example.com
       SECRET: qw34er5t656&&^**&2
       REQUEST_LIMIT: 3
-  whispers_db_test:
+  shop_db_test:
     image: mongo
-    container_name: whispers_db_test
+    container_name: shop_db_test
     ports:
       - 27017:27017
     environment:
@@ -42,9 +42,9 @@ services:
     logging:
       driver: none
 
-  whispers_cache_test:
+  shop_cache_test:
     image: redis:5-alpine
-    container_name: whispers_cache_test
+    container_name: shop_cache_test
     ports:
       - 6379:6379
     logging:

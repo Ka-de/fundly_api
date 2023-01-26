@@ -8,18 +8,18 @@ import { Fixture } from '../../fixture';
 import { RedisCacheService } from '../../../src/redis-cache/redis-cache.service';
 import { ConfigService } from '@nestjs/config';
 import { expect } from 'chai';
-import { RedisCacheKeys } from '../../../src/redis-cache/redis-cache.keys';
-import { taskStub } from '../../stubs/task.stubs';
+import { AccessRights } from '../../../src/shared/access.right';
+import { itemStub } from '../../stubs/item.stubs';
 
-describe('Get Task', () => {
+describe('Get Item', () => {
   let app: INestApplication;
   let httpServer: any;
   let moduleFixture: TestingModule;
   let dbConnection: Connection;
   let fixture: Fixture;
   let user: any;
-  let task: any;
-  let token = null;
+  let item: any;
+  let token: any;
   let redisCacheService: RedisCacheService;
   let configService: ConfigService;
 
@@ -41,18 +41,16 @@ describe('Get Task', () => {
   });
 
   beforeEach(async () => {
-    await redisCacheService.del(RedisCacheKeys.GET_TASK, true);
-    user = await fixture.createUser();
+    user = await fixture.createUser({ right: AccessRights.ADMIN });
     token = await fixture.login(user);
-    await fixture.requestPassword(user.email);
-    task = await fixture.createTask(user);
+    item = await fixture.createItem();
   });
 
   afterEach(async() => {
     await dbConnection.collection('users').deleteMany({});
-    await dbConnection.collection('tasks').deleteMany({});
+    await dbConnection.collection('items').deleteMany({});
   });
-  
+
   after(async () => {
     await dbConnection.dropDatabase();
     await app.close();
@@ -61,7 +59,7 @@ describe('Get Task', () => {
 
   it('should fail when invalid id is sent', async () => {        
     const response = await request(httpServer)
-      .get(`/tasks/${1}`)
+      .get(`/items/${1}`)
       .set('token', token);
 
     expect(response.status).to.equal(HttpStatus.BAD_REQUEST);      
@@ -71,25 +69,26 @@ describe('Get Task', () => {
     });
   });
 
-  it('should fail when task is not found', async () => {   
-    const id = task._id.toString().split('').reverse().join('');      
+  it('should fail when item is not found', async () => {   
+    const id = item._id.toString().split('').reverse().join('');  
+               
     const response = await request(httpServer)
-      .get(`/tasks/${id}`)
+      .get(`/items/${id}`)
       .set('token', token);        
-    
+
     expect(response.status).to.equal(HttpStatus.NOT_FOUND);      
     expect(response.body).to.deep.include({
       success: false,
-      message: 'Task not found'
+      message: 'Item not found'
     });
   });
 
-  it('should get the task', async () => {        
+  it('should get the item', async () => {        
     const response = await request(httpServer)
-      .get(`/tasks/${task._id}`)
+      .get(`/items/${item._id}`)
       .set('token', token);     
 
     expect(response.status).to.equal(HttpStatus.OK);      
-    expect(response.body.payload).to.deep.include(taskStub);
+    expect(response.body.payload).to.deep.include(itemStub);
   });
 });
