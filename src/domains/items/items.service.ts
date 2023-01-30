@@ -12,6 +12,7 @@ import { Item, ItemDocument } from './entities/item.entity';
 import { ItemResponse } from './responses/item.response';
 import { ListItemsResponse } from './responses/list-items.response';
 import { Storage } from '../../shared/storage';
+import { ResponseSchema } from '../../shared/response.schema';
 
 @Injectable()
 export class ItemsService {

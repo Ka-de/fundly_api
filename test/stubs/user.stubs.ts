@@ -12,6 +12,7 @@ export const createUserStub: CreateUserDto = {
 
 export const userStub: Partial<User> = {
   ...createUserStub,
+  cart: [],
   verified: false
 }
 

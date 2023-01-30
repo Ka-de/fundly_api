@@ -44,6 +44,10 @@ export class User {
   @ApiProperty({ description: 'The user update date' })
   updatedAt: Date;
 
+  @ApiProperty({ type: [String], description: 'The cart of the user' })
+  @Prop({ default: [] })
+  cart: string[];  
+
   static toResponse(data: any){
     const user = data._doc;
     delete user.hidden;

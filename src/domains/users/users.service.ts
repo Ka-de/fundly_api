@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -13,6 +13,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserDocument } from './entities/user.entity';
 import { UserResponse } from './responses/user.response';
 import { Storage } from '../../shared/storage';
+import { ItemsService } from '../items/items.service';
 
 @Injectable()
 export class UsersService {
@@ -22,7 +23,8 @@ export class UsersService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
-    private redisCacheService: RedisCacheService
+    private redisCacheService: RedisCacheService,
+    private itemsService: ItemsService
   ){}
 
   async findByEmail(email: string) {     
@@ -116,5 +118,38 @@ export class UsersService {
     await this.userModel.findOneAndUpdate({ _id: id }, { image });
 
     return { success: true, payload: image };
+  }
+
+  async getCart(
+    id: string
+  ){
+    const user = await this.findById(id);
+    return { success: true, payload: user.cart } as ResponseSchema<String[]>;
+  }
+
+  async addToCart(
+    id: string,
+    items: string[]
+  ) {
+    for await (let item of items) {
+      await this.itemsService.getItem(item);
+    }
+
+    const cart = (await this.getCart(id)).payload;
+    await this.userModel.findOneAndUpdate({ _id: id }, { $addToSet: { cart: items }});
+    const payload = Array.from(new Set([...cart, ...items]));
+
+    return { success: true, payload } as ResponseSchema<String[]>;
+  }
+
+  async removeFromCart(
+    id: string,
+    items: string[]
+  ) {
+    const cart = (await this.getCart(id)).payload;
+    await this.userModel.findOneAndUpdate({ _id: id }, { $pull: { cart: items }});
+    const payload = cart.filter(c => items.includes(c as string))
+
+    return { success: true, payload } as ResponseSchema<String[]>;
   }
 }

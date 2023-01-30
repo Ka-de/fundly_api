@@ -15,6 +15,7 @@ import { FileValidator } from '../../shared/file.validator';
 import { CacheClear } from '../../decorators/cache-clear.decorator';
 import { RedisCacheKeys } from '../../redis-cache/redis-cache.keys';
 import { CacheFilter } from '../../decorators/cache-filter.decorator';
+import * as Joi from 'joi';
 
 @Controller('profile')
 export class ProfileController {
@@ -78,5 +79,45 @@ export class ProfileController {
     @CurrentUser('_id') id: string,
   ){    
     return this.usersService.uploadImage(id, file);
+  }
+
+  @ApiHeader({ name: 'token', required: true })
+  @UseGuards(AuthorizeGuard)
+  @ApiResponse({ status: HttpStatus.OK, type: ResponseSchema<String[]> })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, type: ErrorResponse })
+  @CacheKey(RedisCacheKeys.GET_CART)
+  @Get('cart')
+  getCart(
+    @CurrentUser('_id') id: string
+  ) {        
+    return this.usersService.getCart(id);
+  }
+
+  @ApiHeader({ name: 'token', required: true })
+  @UseGuards(AuthorizeGuard)
+  @ApiResponse({ status: HttpStatus.OK, type: ResponseSchema<String[]> })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, type: ErrorResponse })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, type: ErrorResponse })
+  @CacheClear(RedisCacheKeys.GET_CART)
+  @Put('cart')
+  addToCart(
+    @Body('items', new JoiValidationPipe(Joi.array().min(1).required())) items: string[],
+    @CurrentUser('_id') id: string
+  ) {    
+    return this.usersService.addToCart(id, items);
+  }
+
+  @ApiHeader({ name: 'token', required: true })
+  @UseGuards(AuthorizeGuard)
+  @ApiResponse({ status: HttpStatus.OK, type: ResponseSchema<String[]> })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, type: ErrorResponse })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, type: ErrorResponse })
+  @CacheClear(RedisCacheKeys.GET_CART)
+  @Delete('cart')
+  removeFromCart(
+    @Body('items', new JoiValidationPipe(Joi.array().min(1).required())) items: string[],
+    @CurrentUser('_id') id: string
+  ) {        
+    return this.usersService.removeFromCart(id, items);
   }
 }

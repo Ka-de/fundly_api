@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ItemsService } from './items.service';
 import { ItemsController } from './items.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Item, ItemSchema } from './entities/item.entity';
 
+@Global()
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -11,6 +12,7 @@ import { Item, ItemSchema } from './entities/item.entity';
     ])
   ],
   controllers: [ItemsController],
-  providers: [ItemsService]
+  providers: [ItemsService],
+  exports: [ItemsService]
 })
 export class ItemsModule {}
