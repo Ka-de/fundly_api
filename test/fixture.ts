@@ -7,10 +7,16 @@ import { User } from '../src/domains/users/entities/user.entity';
 import { ConfigService } from '@nestjs/config';
 import { sign } from 'jsonwebtoken';
 import { Item } from '../src/domains/items/entities/item.entity';
-import { createitemStub } from './stubs/item.stubs';
+import { createItemStub } from './stubs/item.stubs';
+import { Order } from '../src/domains/orders/entities/order.entity';
+import { createOrderStub } from './stubs/order.stubs';
+import { OrderItemSchema } from '../src/shared/order.item.schema';
+import { OrderState } from "../src/shared/order.state";
+
 export class Fixture {
   readonly userCollection: Collection;
   readonly itemCollection: Collection;
+  readonly orderCollection: Collection;
 
   readonly password = '12345';
 
@@ -21,6 +27,7 @@ export class Fixture {
   ) {
     this.userCollection = this.connection.collection('users');
     this.itemCollection = this.connection.collection('items');
+    this.orderCollection = this.connection.collection('orders');
   }
 
   async createUser(data: Partial<User> = {}){
@@ -52,9 +59,34 @@ export class Fixture {
     const createdAt = new Date();
     const updatedAt = new Date();
 
-    await this.itemCollection.insertOne({ ...createitemStub, ...data, _id: id as any, createdAt, updatedAt, hidden: false });
+    await this.itemCollection.insertOne({ ...createItemStub, ...data, _id: id as any, createdAt, updatedAt, hidden: false });
     const item = await this.itemCollection.findOne({ _id: id });
 
     return item;
+  }
+
+  async createOrder(user: User, items: Item[], data: Partial<Order> = {}){
+    const id = uuidv4();
+    const createdAt = new Date();
+    const updatedAt = new Date();    
+
+    const orderItems = items.map(item => ({
+      _id: item._id,
+      price: item.price,
+      quantity: 4
+    } as OrderItemSchema));
+
+    await this.orderCollection.insertOne({
+      ...createOrderStub(orderItems), 
+      status: OrderState.ORDERED,
+      totalCost: 5000, 
+      ...data, 
+      userId: user._id, 
+      _id: id as any, 
+      createdAt, 
+      updatedAt
+    });
+    const order = await this.orderCollection.findOne({ _id: id });
+    return order;
   }
 }

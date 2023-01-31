@@ -9,19 +9,21 @@ import { RedisCacheService } from '../../../src/redis-cache/redis-cache.service'
 import { ConfigService } from '@nestjs/config';
 import { expect } from 'chai';
 import { AccessRights } from '../../../src/shared/access.right';
-import { createItemStub, itemStub } from '../../stubs/item.stubs';
+import { orderStub } from '../../stubs/order.stubs';
 
-describe('Create Item', () => {
+describe('Get Order', () => {
   let app: INestApplication;
   let httpServer: any;
   let moduleFixture: TestingModule;
   let dbConnection: Connection;
   let fixture: Fixture;
-  let redisCacheService: RedisCacheService;
-  let configService: ConfigService
   let user: any;
+  let item: any;
   let token: any;
-  
+  let order: any;
+  let redisCacheService: RedisCacheService;
+  let configService: ConfigService;
+
   before(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [
@@ -42,11 +44,14 @@ describe('Create Item', () => {
   beforeEach(async () => {
     user = await fixture.createUser({ right: AccessRights.ADMIN });
     token = await fixture.login(user);
+    item = await fixture.createItem();
+    order = await fixture.createOrder(user, [item]);
   });
 
   afterEach(async() => {
     await dbConnection.collection('users').deleteMany({});
     await dbConnection.collection('items').deleteMany({});
+    await dbConnection.collection('orders').deleteMany({});
   });
 
   after(async () => {
@@ -55,70 +60,40 @@ describe('Create Item', () => {
     await moduleFixture.close();
   });
 
-  it('should fail when no title is provided', async () => {
+  it('should fail when invalid id is sent', async () => {  
     const response = await request(httpServer)
-      .post('/items')
-      .set('token', token)
-      .send({});    
+      .get(`/orders/${1}`)
+      .set('token', token);
 
-    expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
+    expect(response.status).to.equal(HttpStatus.BAD_REQUEST);      
     expect(response.body).to.deep.include({
       success: false,
-      message: '"title" is required'
-    })  
-  });
-
-  it('should fail when no price is provided', async () => {
-    const { title } = createItemStub;
-    const response = await request(httpServer)
-      .post('/items')
-      .set('token', token)
-      .send({ title });
-
-    expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
-    expect(response.body).to.deep.include({
-      success: false,
-      message: '"price" is required'
-    })  
-  });
-
-  it('should fail when invalid price is provided', async () => {
-    const { title } = createItemStub;
-    const response = await request(httpServer)
-      .post('/items')
-      .set('token', token)
-      .send({ title, price: 'abc' });
-
-    expect(response.status).to.equal(HttpStatus.BAD_REQUEST);  
-    expect(response.body).to.deep.include({
-      success: false,
-      message: '"price" must be a number'
-    })  
-  });
-
-  it('should fail when title is taken', async () => {
-    await fixture.createItem();
-
-    const response = await request(httpServer)
-      .post('/items')
-      .set('token', token)
-      .send({ ...createItemStub });    
-
-    expect(response.status).to.equal(HttpStatus.CONFLICT);  
-    expect(response.body).to.deep.include({
-      success: false,
-      message: '"title" is already in use'
+      message: '"id" is not a valid uuid'
     });
   });
 
-  it('should succeed when valid data is provided', async () => {
+  it('should fail when order is not found', async () => {   
+    const id = order._id.toString().split('').reverse().join('');  
+               
     const response = await request(httpServer)
-      .post('/items')
-      .set('token', token)
-      .send({...createItemStub});      
+      .get(`/orders/${id}`)
+      .set('token', token);        
 
-    expect(response.status).to.equal(HttpStatus.CREATED); 
-    expect(response.body.success).to.equal(true);                           
-    expect(response.body.payload).to.deep.include(itemStub);
+    expect(response.status).to.equal(HttpStatus.NOT_FOUND);      
+    expect(response.body).to.deep.include({
+      success: false,
+      message: 'Order not found'
+    });
+  });
+
+  it('should get the item', async () => {   
+    const orderItem = { _id: item._id, price: item.price, quantity: 4 };
+     
+    const response = await request(httpServer)
+      .get(`/orders/${order._id}`)
+      .set('token', token);         
+
+    expect(response.status).to.equal(HttpStatus.OK);      
+    expect(response.body.payload).to.deep.include(orderStub(user._id, [orderItem]));
   });
 });
